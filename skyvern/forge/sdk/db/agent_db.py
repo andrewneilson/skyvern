@@ -5279,6 +5279,8 @@ class AgentDB(BaseAlchemyDB):
                     if persistent_browser_session.completed_at:
                         return PersistentBrowserSession.model_validate(persistent_browser_session)
                     persistent_browser_session.completed_at = datetime.utcnow()
+                    persistent_browser_session.browser_address = None
+                    persistent_browser_session.ip_address = None
                     await session.commit()
                     await session.refresh(persistent_browser_session)
                     return PersistentBrowserSession.model_validate(persistent_browser_session)

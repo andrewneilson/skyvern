@@ -120,6 +120,14 @@ class RealBrowserState(BrowserState):
             if url and page.url.rstrip("/") != url.rstrip("/"):
                 await self.navigate_to_url(page=page, url=url)
 
+    # Non-retriable error patterns — fail immediately without retrying
+    _NON_RETRIABLE_ERRORS = (
+        "net::ERR_NAME_NOT_RESOLVED",
+        "net::ERR_NAME_RESOLUTION_FAILED",
+        "net::ERR_INVALID_URL",
+        "net::ERR_CERT_",
+    )
+
     async def navigate_to_url(self, page: Page, url: str, retry_times: int = NAVIGATION_MAX_RETRY_TIME) -> None:
         try:
             for retry_time in range(retry_times):
@@ -139,11 +147,22 @@ class RealBrowserState(BrowserState):
                     return
 
                 except Exception as e:
+                    error_str = str(e)
+
+                    # Don't retry errors that won't resolve themselves
+                    if any(pattern in error_str for pattern in self._NON_RETRIABLE_ERRORS):
+                        LOG.warning(
+                            "Non-retriable navigation error, failing immediately",
+                            url=url,
+                            error=error_str,
+                        )
+                        raise FailedToNavigateToUrl(url=url, error_message=error_str)
+
                     if retry_time >= retry_times - 1:
-                        raise FailedToNavigateToUrl(url=url, error_message=str(e))
+                        raise FailedToNavigateToUrl(url=url, error_message=error_str)
 
                     LOG.warning(
-                        f"Error while navigating to url: {str(e)}",
+                        f"Error while navigating to url: {error_str}",
                         exc_info=True,
                         url=url,
                         retry_time=retry_time,

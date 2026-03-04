@@ -61,6 +61,20 @@ def set_current_session(state: SessionState) -> None:
     _current_session.set(state)
 
 
+@asynccontextmanager
+async def scoped_session(state: SessionState) -> AsyncIterator[None]:
+    """Temporarily push a SessionState into ContextVar scope.
+
+    Restores the previous value on exit. Does NOT touch _global_session,
+    so it is safe for concurrent API-server requests.
+    """
+    token = _current_session.set(state)
+    try:
+        yield
+    finally:
+        _current_session.reset(token)
+
+
 def set_stateless_http_mode(enabled: bool) -> None:
     global _stateless_http_mode
     _stateless_http_mode = enabled
